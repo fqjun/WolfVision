@@ -19,8 +19,8 @@ int main() {
   mindvision::VideoCapture* mv_capture_ = new mindvision::VideoCapture(
     mindvision::CameraParam(0, mindvision::RESOLUTION_1280_X_800, mindvision::EXPOSURE_600));
 
-  uart::SerialPort serial_ = uart::SerialPort(
-    fmt::format("{}{}", CONFIG_FILE_PATH, "/serial/uart_serial_config.xml"));
+  // uart::SerialPort serial_ = uart::SerialPort(
+  //   fmt::format("{}{}", CONFIG_FILE_PATH, "/serial/uart_serial_config.xml"));
 
   cv::VideoCapture cap_ = cv::VideoCapture(0);
 
@@ -49,6 +49,14 @@ int main() {
   fps::FPS       global_fps_;
 
   basic_roi::RoI roi_;
+
+  network_com::tcp_com com = network_com::tcp_com(fmt::format("{}{}", CONFIG_FILE_PATH, "/network/tcp_com_config.xml"));
+
+  int com_status = com.initServer();
+  if (com_status < 0) {
+    printf("initserver() failed.\n");
+    return -1;
+  }
   while (true) {
     global_fps_.getTick();
     if (mv_capture_->isindustryimgInput()) {
@@ -57,33 +65,39 @@ int main() {
       cap_.read(src_img_);
     }
     if (!src_img_.empty()) {
-      serial_.updateReceiveInformation();
+      int communication_status = com.recvData();
 
-      switch (serial_.returnReceiveMode()) {
+      if (communication_status < 0) {
+        break;
+      } else if (communication_status == 0) {
+        continue;
+      }
+
+      switch (com.returnReceiveMode()) {
       // 基础自瞄模式
       case uart::SUP_SHOOT:
-        if (basic_armor_.runBasicArmor(src_img_, serial_.returnReceive())) {
-          pnp_.solvePnP(serial_.returnReceiveBulletVelocity(), basic_armor_.returnFinalArmorDistinguish(0), basic_armor_.returnFinalArmorRotatedRect(0));
+        if (basic_armor_.runBasicArmor(src_img_, com.returnReceive())) {
+          pnp_.solvePnP(com.returnReceiveBulletVelocity(), basic_armor_.returnFinalArmorDistinguish(0), basic_armor_.returnFinalArmorRotatedRect(0));
         }
-        serial_.updataWriteData(pnp_.returnYawAngle(), pnp_.returnPitchAngle(), pnp_.returnDepth(), basic_armor_.returnArmorNum(), 0);
+        com.sendData(pnp_.returnYawAngle(), pnp_.returnPitchAngle(), pnp_.returnDepth(), basic_armor_.returnArmorNum(), 0);
         break;
       // 能量机关
       case uart::ENERGY_AGENCY:
-        serial_.writeData(basic_buff_.runTask(src_img_, serial_.returnReceive()));
+        com.sendData(basic_buff_.runTask(src_img_, com.returnReceive()));
         break;
       // 击打哨兵模式
       case uart::SENTRY_STRIKE_MODE:
-        if (basic_armor_.sentryMode(src_img_, serial_.returnReceive())) {
-          pnp_.solvePnP(serial_.returnReceiveBulletVelocity(),
+        if (basic_armor_.sentryMode(src_img_, com.returnReceive())) {
+          pnp_.solvePnP(com.returnReceiveBulletVelocity(),
                         basic_armor_.returnFinalArmorDistinguish(0),
                         basic_armor_.returnFinalArmorRotatedRect(0));
-          serial_.updataWriteData(pnp_.returnYawAngle(),
+          com.sendData(pnp_.returnYawAngle(),
                                   pnp_.returnPitchAngle(),
                                   pnp_.returnDepth(),
                                   basic_armor_.returnArmorNum(),
                                   0);
         } else {
-          serial_.updataWriteData(-pnp_.returnYawAngle(),
+          com.sendData(-pnp_.returnYawAngle(),
                                   pnp_.returnPitchAngle(),
                                   pnp_.returnDepth(),
                                   basic_armor_.returnLostCnt() > 0 ? 1 : 0,
@@ -94,18 +108,18 @@ int main() {
       // 反小陀螺模式（暂未完善）
       case uart::TOP_MODE:
         roi_img_ = roi_.returnROIResultMat(src_img_);
-        if (basic_armor_.runBasicArmor(roi_img_, serial_.returnReceive())) {
+        if (basic_armor_.runBasicArmor(roi_img_, com.returnReceive())) {
           basic_armor_.fixFinalArmorCenter(0, roi_.returnRectTl());
             roi_.setLastRoiRect(basic_armor_.returnFinalArmorRotatedRect(0),
             basic_armor_.returnFinalArmorDistinguish(0));
-            pnp_.solvePnP(serial_.returnReceiveBulletVelocity(),
+            pnp_.solvePnP(com.returnReceiveBulletVelocity(),
             basic_armor_.returnFinalArmorDistinguish(0),
             basic_armor_.returnFinalArmorRotatedRect(0));
-          serial_.updataWriteData(pnp_.returnYawAngle(),
+          com.sendData(pnp_.returnYawAngle(),
             pnp_.returnPitchAngle(), pnp_.returnDepth(),
             basic_armor_.returnArmorNum(), 0);
         } else {
-          serial_.updataWriteData(-pnp_.returnYawAngle(),
+          com.sendData(-pnp_.returnYawAngle(),
             pnp_.returnPitchAngle(), pnp_.returnDepth(),
             basic_armor_.returnLostCnt() > 0 ? 1 : 0, 0);
         }
@@ -121,33 +135,33 @@ int main() {
         break;
       // 哨兵模式（添加数字识别便于区分工程和其他车辆）
       case uart::SENTINEL_AUTONOMOUS_MODE:
-        if (basic_armor_.runBasicArmor(src_img_, serial_.returnReceive())) {
+        if (basic_armor_.runBasicArmor(src_img_, com.returnReceive())) {
           if (basic_armor_.returnFinalArmorDistinguish(0) == 1) {
-            pnp_.solvePnP(serial_.returnReceiveBulletVelocity(),
+            pnp_.solvePnP(com.returnReceiveBulletVelocity(),
               basic_armor_.returnFinalArmorDistinguish(0),
               basic_armor_.returnFinalArmorRotatedRect(0));
-            serial_.updataWriteData(pnp_.returnYawAngle(),
+            com.sendData(pnp_.returnYawAngle(),
               pnp_.returnPitchAngle(), pnp_.returnDepth(), basic_armor_.returnArmorNum(), 0);
           } else {
             for (int i = 0; i < basic_armor_.returnArmorNum(); i++) {
               if (model_.inferring(save_roi.cutRoIRotatedRect(src_img_,
                 basic_armor_.returnFinalArmorRotatedRect(i)), 0, 0, src_img_) == 2) {
                 if (basic_armor_.returnArmorNum() > 1) {
-                  pnp_.solvePnP(serial_.returnReceiveBulletVelocity(),
+                  pnp_.solvePnP(com.returnReceiveBulletVelocity(),
                     basic_armor_.returnFinalArmorDistinguish(i + 1),
                     basic_armor_.returnFinalArmorRotatedRect(i + 1));
-                  serial_.updataWriteData(pnp_.returnYawAngle(),
+                  com.sendData(pnp_.returnYawAngle(),
                     pnp_.returnPitchAngle(), pnp_.returnDepth(),
                     basic_armor_.returnArmorNum(), 0);
                   break;
                 } else {
-                  serial_.updataWriteData(pnp_.returnYawAngle(), pnp_.returnPitchAngle(), pnp_.returnDepth(), 0, 0);
+                  com.sendData(pnp_.returnYawAngle(), pnp_.returnPitchAngle(), pnp_.returnDepth(), 0, 0);
                   break;
                 }
               } else {
-                pnp_.solvePnP(serial_.returnReceiveBulletVelocity(),
+                pnp_.solvePnP(com.returnReceiveBulletVelocity(),
                   basic_armor_.returnFinalArmorDistinguish(0), basic_armor_.returnFinalArmorRotatedRect(0));
-                serial_.updataWriteData(pnp_.returnYawAngle(),
+                com.sendData(pnp_.returnYawAngle(),
                   pnp_.returnPitchAngle(), pnp_.returnDepth(), basic_armor_.returnArmorNum(), 0);
                 break;
               }
@@ -160,19 +174,19 @@ int main() {
         break;
       // 默认进入基础自瞄
       default:
-        if (basic_armor_.runBasicArmor(src_img_, serial_.returnReceive())) {
-            pnp_.solvePnP(serial_.returnReceiveBulletVelocity(), basic_armor_.returnFinalArmorDistinguish(0), basic_armor_.returnFinalArmorRotatedRect(0));
+        if (basic_armor_.runBasicArmor(src_img_, com.returnReceive())) {
+            pnp_.solvePnP(com.returnReceiveBulletVelocity(), basic_armor_.returnFinalArmorDistinguish(0), basic_armor_.returnFinalArmorRotatedRect(0));
         }
-        serial_.updataWriteData(pnp_.returnYawAngle(), pnp_.returnPitchAngle(), pnp_.returnDepth(), basic_armor_.returnArmorNum(), 0);
+        com.sendData(pnp_.returnYawAngle(), pnp_.returnPitchAngle(), pnp_.returnDepth(), basic_armor_.returnArmorNum(), 0);
         break;
       }
     }
-    if (record_.last_mode_ != uart::RECORD_MODE && serial_.returnReceiveMode() == uart::RECORD_MODE) {
+    if (record_.last_mode_ != uart::RECORD_MODE && com.returnReceiveMode() == uart::RECORD_MODE) {
       vw_src.release();
     }
-    record_.last_mode_ = serial_.returnReceiveMode();
+    record_.last_mode_ = com.returnReceiveMode();
     // 非击打哨兵模式时初始化
-    if (serial_.returnReceiveMode() != uart::SENTRY_STRIKE_MODE) {
+    if (com.returnReceiveMode() != uart::SENTRY_STRIKE_MODE) {
       basic_armor_.initializationSentryMode();
     }
     mv_capture_->cameraReleasebuff();

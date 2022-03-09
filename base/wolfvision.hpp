@@ -25,6 +25,7 @@
 #include "module/record/record.hpp"
 #include "module/roi/basic_roi.hpp"
 #include "utils/reset_mv_camera.hpp"
+#include "devices/network/network_port_communication.hpp"
 #include <string>
 
 auto idntifier = fmt::format(fg(fmt::color::green) | fmt::emphasis::bold, "wolfvision");

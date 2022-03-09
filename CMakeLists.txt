@@ -82,6 +82,11 @@ list(APPEND EXTRA_INCLUDES ${PROJECT_SOURCE_DIR}/devices/serial)
 add_library(wv-uart-serial SHARED devices/serial/uart_serial.cpp)
 list(APPEND WV_EXTRA_LIBS wv-uart-serial)
 
+list(APPEND EXTRA_INCLUDES ${PROJECT_SOURCE_DIR}/devices/network)
+add_library(wv-network-port-communication SHARED devices/network/network_port_communication.cpp)
+list(APPEND WV_EXTRA_LIBS wv-network-port-communication)
+
+
 # Add module as shared library to build target
 list(APPEND EXTRA_INCLUDES module)
 
