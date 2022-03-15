@@ -195,7 +195,7 @@ class tcp_com {
   // 接受的返回值
   ssize_t isize;
   // 收发的结构体
-  message_pack pack;
+  // message_pack pack;
   uart::Receive_Data receive_data_;
   uart::Write_Data   write_data_;
 

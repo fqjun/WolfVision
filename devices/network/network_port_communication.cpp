@@ -140,10 +140,11 @@ int tcp_com::recvData() {
 
       // 客户端有数据过来或客户端的socket连接被断开。
       // 清空结构体
-      pack = message_pack();
+      // pack = message_pack();
+      receive_data_ = uart::Receive_Data();
 
       // 读取客户端的数据。记得改成比赛用接收的结构体
-      isize = read(eventfd, &pack, sizeof(pack));
+      isize = read(eventfd, &receive_data_, sizeof(receive_data_));
 
       // 发生了错误或 socket 被对方关闭。
       if (isize <= 0) {
@@ -169,9 +170,14 @@ int tcp_com::recvData() {
         continue;
       }
 
-      fmt::print("[{}] recv(eventfd= {} ,size= {}): num={} \n", idntifier_green, eventfd, isize, pack.num);
-      fmt::print("[{}] recv(eventfd= {} ,size= {}): age={} \n", idntifier_green, eventfd, isize, pack.age);
-      fmt::print("[{}] recv(eventfd= {} ,size= {}): buffer_char={} \n", idntifier_green, eventfd, isize, pack.buffer_char);
+      fmt::print("[{}] recv(eventfd= {} ,size= {}): my_color={} \n", idntifier_green, eventfd, isize, receive_data_.my_color);
+      fmt::print("[{}] recv(eventfd= {} ,size= {}): my_robot_id={} \n", idntifier_green, eventfd, isize, receive_data_.my_robot_id);
+      fmt::print("[{}] recv(eventfd= {} ,size= {}): buffer_char={} \n", idntifier_green, eventfd, isize, receive_data_.now_run_mode);
+      fmt::print("[{}] recv(eventfd= {} ,size= {}): buffer_char={} \n", idntifier_green, eventfd, isize, receive_data_.bullet_velocity);
+      // fmt::print("[{}] recv(eventfd= {} ,size= {}): buffer_char={} \n", idntifier_green, eventfd, isize, receive_data_.Receive_Yaw_Angle_Info);
+      // fmt::print("[{}] recv(eventfd= {} ,size= {}): buffer_char={} \n", idntifier_green, eventfd, isize, receive_data_.Receive_Pitch_Angle_Info);
+      // fmt::print("[{}] recv(eventfd= {} ,size= {}): buffer_char={} \n", idntifier_green, eventfd, isize, receive_data_.Receive_Yaw_Velocity_Info);
+      // fmt::print("[{}] recv(eventfd= {} ,size= {}): buffer_char={} \n", idntifier_green, eventfd, isize, receive_data_.Receive_Pitch_Velocity_Info);
 
       // 把收到的报文发回给客户端。
       // write(eventfd,&pack,sizeof(pack));
@@ -182,7 +188,8 @@ int tcp_com::recvData() {
 
 void tcp_com::sendData() {
   for (auto iter = eventfd_box.begin(); iter != eventfd_box.end(); ++iter) {
-    write(*iter, &pack, sizeof(pack));
+    // write(*iter, &pack, sizeof(pack));
+    write(*iter, &write_data_, sizeof(write_data_));
   }
 
   return;
