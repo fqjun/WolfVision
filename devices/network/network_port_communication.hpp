@@ -35,6 +35,33 @@ struct message_pack {
   }
 };
 
+struct Receive_Data_test_ {
+  uint8_t   my_color;
+  uint8_t   now_run_mode;
+  uint8_t   my_robot_id;
+  float   bullet_velocity;
+
+  // Description of the yaw axis angle of the gyroscope (signed)
+    float   yaw_angle;
+    float   yaw_veloctiy;
+
+
+  // Description of the pitch axis angle of the gyroscope (signed)
+    float   pitch_angle;
+    float   pitch_veloctiy;
+
+  Receive_Data_test_() {
+    my_color                                   = uart::ALL;
+    now_run_mode                               = uart::SUP_SHOOT;
+    my_robot_id                                = uart::INFANTRY;
+    bullet_velocity                            = 30;
+    yaw_angle           = 0.f;
+    yaw_veloctiy     = 0.f;
+    pitch_angle       = 0.f;
+    pitch_veloctiy = 0.f;
+  }
+};
+
 // 服务端类
 class tcp_com {
  public:
@@ -196,6 +223,7 @@ class tcp_com {
   ssize_t isize;
   // 收发的结构体
   // message_pack pack;
+  Receive_Data_test_ receive_data_test;
   uart::Receive_Data receive_data_;
   uart::Write_Data   write_data_;
 
