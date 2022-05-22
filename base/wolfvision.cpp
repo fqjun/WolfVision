@@ -11,8 +11,7 @@
  *
  */
 #include "wolfvision.hpp"
-
-int main() {
+int main(int argc, const char** argv) {
   fmt::print("[{}] WolfVision built on g++ version: {}\n", idntifier, __VERSION__);
   fmt::print("[{}] WolfVision config file path: {}\n", idntifier, CONFIG_FILE_PATH);
   cv::Mat src_img_, roi_img_;
@@ -73,7 +72,16 @@ int main() {
         continue;
       }
 
-      switch (com.returnReceiveMode()) {
+      int mode = 1;  // 默认自瞄模式
+      int i = 0;
+      if (argc == 2) {
+        i = 1;
+        mode = atoi(argv[i]);
+      } else {
+        mode = com.returnReceiveMode();
+      }
+
+      switch (/* com.returnReceiveMode() */mode) {
       // 基础自瞄模式
       case uart::SUP_SHOOT:
         if (basic_armor_.runBasicArmor(src_img_, com.returnReceive())) {
